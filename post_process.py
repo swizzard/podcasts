@@ -1,10 +1,6 @@
 import numpy as np
 
 
-def fd(arr):
-    return dict(zip(*np.unique(np.array(arr), return_counts=True)))
-
-
 def pub_schedule(pod_info):
     out = {}
     pubs = pod_info['pubs']

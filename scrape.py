@@ -3,11 +3,17 @@ import requests
 
 
 class Scraper():
-    def __init__(self):
-        self.root = "https://www.blubrry.com"
+    def __init__(self, root, start_page):
+        self.root = root
+        self.start_page = start_page
+
+    def scrape(self):
+        for cat in self.scrape_cats():
+            for podcast in self.scrape_cat_page(cat):
+                yield self.scrape_feed_url(podcast)
 
     def scrape_cats(self):
-        for tag in self.get_soup('/programs').find_all(
+        for tag in self.get_soup(self.start_page).find_all(
                 self.class_fil('category-box')):
             link = self.get_link(tag.a)
             if link:
@@ -45,11 +51,4 @@ class Scraper():
     def get_link(tag):
         return tag.attrs.get('href')
 
-
-def main():
-    scraper = Scraper()
-    links = []
-    for cat in scraper.scrape_cats():
-        for podcast in scraper.scrape_cat_page(cat):
-            yield scraper.scrape_feed_url(podcast)
 
