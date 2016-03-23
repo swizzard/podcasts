@@ -47,4 +47,11 @@ class Storage():
         return cats
 
 
+class DummyStorage():
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def store_podcast(pod_info):
+        yield pod_info
 

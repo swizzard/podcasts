@@ -9,43 +9,65 @@ class Parser():
         pass
 
     def parse_feed(self, url):
-        res = self.get_res(url)
-        return self.process_feed(res)        
+        if url:
+            print(url)
+            res = self.get_res(url)
+            return self.process_feed(res)        
 
     def process_feed(self, res):
-        chan = res.channel
-        pod_info = {'link': self.get_link(res),
-                    'language': chan.language,
-                    'author': res.author.text or '',
-                    'title': res.title.text or '',
-                    'summary': res.summary.text or '',
-                    'explicit': self.parse_explicit(res.explicit.text),
-                    'categories': self.chan_categories(res)}
-        pod_info.update(self.item_info(res))
-        return pod_info
+        if res:
+            pod_info = {}
+            try:
+                chan = res.channel
+                if chan is None:
+                    return
+                else:
+                    pod_info['link'] = self.get_link(res)
+                    pod_info['language'] = chan.language
+                    pod_info['author'] = self.get_text(res, 'author')
+                    pod_info['title'] = self.get_text(res, 'title')
+                    pod_info['summary'] = self.get_text(res, 'summary')
+                    explicit = self.get_text(res, 'explicit')
+                    pod_info['explicit'] = self.parse_explicit(explicit)
+                    pod_info['categories'] = self.chan_categories(res)
+                    pod_info.update(self.item_info(res))
+            except (AttributeError, TypeError):
+                print(res)
+                raise
+            else:
+                return pod_info
 
     def item_info(self, res):
         items = res.find_all('item')
         item_info = {}
+        pubs = []
+        durs = []
+        descs = []
         try:
-            item_info['pubs'] = [parser.parse(item.pubDate.text) for item in
+            pubs = [parser.parse(item.pubDate.text) for item in
                                  items]
         except (AttributeError, ValueError):
             pass
         try:
-            item_info['durs'] = self.get_durs(items)
+            durs = self.get_durs(items)
         except (AttributeError, TypeError, ValueError):
             pass
         try:
-            item_info['descs'] = [S(item.description.text, 'lxml').text for
-                                  item in items]
+            descs = [S(item.description.text, 'lxml').text for item in items]
         except (AttributeError, TypeError, ValueError):
             pass
+        item_info['pubs'] = pubs
+        item_info['durs'] = durs
+        item_info['descs'] = descs
         return item_info
 
     @staticmethod
     def get_res(url):
-        return S(requests.get(url).content, 'xml')
+        req = requests.get(url)
+        if req.ok:
+            return S(req.content, 'xml')
+        else:
+            return None
 
     @staticmethod
     def parse_explicit(txt):
@@ -67,7 +89,7 @@ class Parser():
     def get_durs(self, items):
         durs = []
         for item in items:
-            if ite.duration is not None:
+            if item.duration is not None:
                 durs.append(self.parse_duration(item.duration.text))
             elif item.content is not None:
                 dur = item.content.get('duration')
@@ -90,4 +112,11 @@ class Parser():
                 lambda tag: '.rss' in tag.get('href', '')]
         links = [res.find(func) for func in funcs]
         return links[0] if links else None
+
+    @staticmethod
+    def get_text(res, attr):
+        a = getattr(res, attr)
+        if a is None:
+            return ''
+        return a.text or ''
 
