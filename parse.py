@@ -1,3 +1,5 @@
+import logging
+
 from bs4 import BeautifulSoup as S
 from dateutil import parser
 import re
@@ -5,32 +7,31 @@ import requests
 
 
 class Parser():
-    def __init__(self):
-        pass
+    def __init__(self, session):
+        self.session = session
 
     def parse_feed(self, url):
         if url:
             print(url)
-            res = self.get_res(url)
-            return self.process_feed(res)        
+            res, url = self.get_res(url)
+            return self.process_feed(res, url)
 
-    def process_feed(self, res):
+    def process_feed(self, res, url):
         if res:
-            pod_info = {}
+            pod_info = {'link': url}
             try:
                 chan = res.channel
                 if chan is None:
                     return
                 else:
-                    pod_info['link'] = self.get_link(res)
-                    pod_info['language'] = chan.language
-                    pod_info['author'] = self.get_text(res, 'author')
-                    pod_info['title'] = self.get_text(res, 'title')
-                    pod_info['summary'] = self.get_text(res, 'summary')
-                    explicit = self.get_text(res, 'explicit')
+                    pod_info['language'] = self.get_text(chan, 'language')
+                    pod_info['author'] = self.get_text(chan, 'author')
+                    pod_info['title'] = self.get_text(chan, 'title')
+                    pod_info['summary'] = self.get_text(chan, 'summary')
+                    explicit = self.get_text(chan, 'explicit')
                     pod_info['explicit'] = self.parse_explicit(explicit)
-                    pod_info['categories'] = self.chan_categories(res)
-                    pod_info.update(self.item_info(res))
+                    pod_info['categories'] = self.chan_categories(chan)
+                    pod_info.update(self.item_info(chan))
             except (AttributeError, TypeError):
                 print(res)
                 raise
@@ -61,13 +62,21 @@ class Parser():
         item_info['descs'] = descs
         return item_info
 
-    @staticmethod
-    def get_res(url):
-        req = requests.get(url)
-        if req.ok:
-            return S(req.content, 'xml')
+    def get_res(self, url):
+        body = None
+        link = None
+        try:
+            req = self.session.get(url)
+        except requests.RequestException:
+            logging.exception('error getting %s', url)
         else:
-            return None
+            if req.ok:
+                body = S(req.content, 'xml')
+                link = req.url
+            else:
+                logging.error('got %s retrieving %s', req.status_code,
+                              req.url)
+        return body, link
 
     @staticmethod
     def parse_explicit(txt):
@@ -104,14 +113,6 @@ class Parser():
             return tag.name == 'category' and \
                 tag.namespace == 'http://www.itunes.com/dtds/podcast-1.0.dtd'
         return {cat['text'] for cat in res.find_all(itcat)}
-
-    @staticmethod
-    def get_link(res):
-        funcs = [lambda tag: tag.type == 'application/rss+xml',
-                lambda tag: tag.namespace == 'http://www.w3.org/2005/Atom',
-                lambda tag: '.rss' in tag.get('href', '')]
-        links = [res.find(func) for func in funcs]
-        return links[0] if links else None
 
     @staticmethod
     def get_text(res, attr):

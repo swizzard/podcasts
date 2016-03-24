@@ -3,17 +3,18 @@ import requests
 
 
 class Scraper():
-    def __init__(self, root, start_page):
-        self.root = root
-        self.start_page = start_page
+    def __init__(self, session):
+        self.session = session
+        self.root = None
 
-    def scrape(self):
-        for cat in self.scrape_cats():
+    def scrape(self, root, start_page):
+        self.root = root
+        for cat in self.scrape_cats(start_page):
             for podcast in self.scrape_cat_page(cat):
                 yield self.scrape_feed_url(podcast)
 
-    def scrape_cats(self):
-        for tag in self.get_soup(self.start_page).find_all(
+    def scrape_cats(self, start_page):
+        for tag in self.get_soup(start_page).find_all(
                 self.class_fil('category-box')):
             link = self.get_link(tag.a)
             if link:
@@ -40,7 +41,7 @@ class Scraper():
 
     def get_soup(self, url, params=None):
         params = params or {}
-        res = requests.get(self.root + url, params=params)
+        res = self.session.get(self.root + url, params=params)
         return S(res.content, 'lxml')
 
     @staticmethod

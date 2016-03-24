@@ -1,9 +1,9 @@
 import numpy as np
 
 
-def get_freqs(a, thresh=1):
+def get_freqs(a):
     raw = dict(zip(*np.unique(a, return_counts=True)))
-    return {k: v for k, v in raw.items() if v > thresh}
+    return {k: v for k, v in raw.items()}
 
 
 def pub_schedule(pod_info):
@@ -20,7 +20,7 @@ def pub_schedule(pod_info):
     week_days = np.array([pub.weekday() for pub in pubs])
     month_days = np.array([pub.day for pub in pubs])
     wd_freqs = get_freqs(week_days)
-    md_freqs = get_freqs(month_days, thresh=0)
+    md_freqs = get_freqs(month_days) 
     # if len(wd_freqs) >= 5:
     #     out['schedule'] = 'daily'
     # if wdf_std < mdf_std:
@@ -31,14 +31,18 @@ def pub_schedule(pod_info):
     return out
 
 
-def reject_outliers(data, m = 2.):
+def reject_outliers(data, m=2.):
     """
     Taken from http://stackoverflow.com/questions/11686720/is-there-a-numpy-builtin-to-reject-outliers-from-a-list
     """
     d = np.abs(data - np.median(data))
     mdev = np.median(d)
     s = d/mdev if mdev else 0.
-    return data[s<m]
+    try:
+        out = data[s < m]
+    except IndexError:
+        out = None
+    return out
 
 
 def expected_dur(pod_info):
@@ -52,6 +56,8 @@ def expected_dur(pod_info):
     else:
         durs = np.array(durs)
         normed = reject_outliers(durs, 1)
+        if normed is None:
+            return None
         med = np.median(normed)
         mean = normed.mean()
         avg_mins = (med + mean) / 120

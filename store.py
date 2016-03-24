@@ -22,13 +22,14 @@ class Storage():
         podcast.explicit = pod_info['explicit']
         podcast.duration = pod_info['expected_dur']
         podcast.categories = get_categories(session, pod_info['categories'])
-        podcast.schedule = get_schedule(session, pod_info)
         try:
             self.session.add(podcast)
             self.session.commit()
         except SQLAlchemyError:
             logging.exception('error storing podcast %s', link)
             self.session.rollback()
+        else:
+            yield podcast
 
     def get_categories(session, categories):
         cats = self.session.query(models.Category).filter(Category.name.in_(
@@ -53,5 +54,5 @@ class DummyStorage():
 
     @staticmethod
     def store_podcast(pod_info):
-        yield pod_info
+        return pod_info
 

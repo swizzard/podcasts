@@ -1,3 +1,5 @@
+import requests
+
 from parse import Parser
 from post_process import expected_dur, pub_schedule
 from scrape import Scraper
@@ -6,12 +8,14 @@ from store import DummyStorage, Storage
 
 class Pipeline():
     def __init__(self, dry=False):
-        self.parser = Parser()
+        self.session = requests.Session()
+        self.session.headers = {'user-agent': 'shr-podcasts-bot'}
+        self.scraper = Scraper(self.session)
+        self.parser = Parser(self.session)
         self.storage = DummyStorage() if dry else Storage()
 
     def run(self, root, start_page, max_=None):
-        scraper = Scraper(root, start_page)
-        feeds = scraper.scrape()
+        feeds = self.scraper.scrape(root, start_page)
         count = 0
         for feed in feeds:
             if not max_ or count < max_:

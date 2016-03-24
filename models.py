@@ -36,61 +36,42 @@ class DayOfMonth(Base):
     day = schema.Column(types.Integer, unique=True, index=True)
 
 
-week_days_to_schedule = schema.Table('week_days_to_schedule', Base.metadata,
+week_days_to_podcasts = schema.Table('week_days_to_podcasts', Base.metadata,
                                      schema.Column('id', types.Integer,
                                                    primary_key=True),
                                      schema.Column('week_day_id',
                                                    types.Integer,
                                                    schema.ForeignKey('weekday.id')),
-                                     schema.Column('schedule_id',
+                                     schema.Column('podcast_id',
                                                    types.Integer,
-                                                   schema.ForeignKey('schedules.id')))
+                                                   schema.ForeignKey('podcasts.id')))
 
 
-day_of_month_to_schedule = schema.Table('day_of_month_to_schedule', Base.metadata,
-                                        schema.Column('id', types.Integer,
-                                                      primary_key=True),
-                                        schema.Column('day_of_month_id',
-                                                      types.Integer,
-                                                      schema.ForeignKey('day_of_month.id')),
-                                        schema.Column('schedule_id',
-                                                      types.Integer,
-                                                      schema.ForeignKey('schedules.id')))
+days_of_month_to_podcasts = schema.Table('days_of_month_to_podcasts', Base.metadata,
+                                         schema.Column('id', types.Integer,
+                                                       primary_key=True),
+                                         schema.Column('day_of_month_id',
+                                                       types.Integer,
+                                                       schema.ForeignKey('day_of_month.id')),
+                                         schema.Column('podcast_id',
+                                                       types.Integer,
+                                                       schema.ForeignKey('podcasts.id')))
 
 
-schedule_to_podcasts = schema.Table('schedules_to_podcasts', Base.metadata,
-                                    schema.Column('id', types.Integer,
-                                                  primary_key=True),
-                                    schema.Column('schedule_id', types.Integer,
-                                                  schema.ForeignKey('schedules.id')),
-                                    schema.Column('podcast_id', types.Integer,
-                                                  schema.ForeignKey('podcasts.id')))
+categories_to_podcasts = schema.Table('categories_to_podcasts', Base.metadata,
+                                      schema.Column('id', types.Integer,
+                                                    primary_key=True),
+                                      schema.Column('category_id', types.Integer,
+                                                    schema.ForeignKey('categories.id')),
+                                      schema.Column('podcast_id', types.Integer,
+                                                    schema.ForeignKey('podcasts.id')))
+ 
 
 class Category(Base):
     __tablename__ = 'categories'
 
     id = schema.Column(types.Integer, primary_key=True)
     name = schema.Column(types.String(255), unique=True, index=True)
-
-
-categories_to_podcast = schema.Table('categories_to_podcasts', Base.metadata,
-                                     schema.Column('id', types.Integer,
-                                                   primary_key=True),
-                                     schema.Column('category_id', types.Integer,
-                                                   schema.ForeignKey('categories.id')),
-                                     schema.Column('podcast_id', types.Integer,
-                                                   schema.ForeignKey('podcasts.id')))
- 
-
-class Schedule(Base):
-    __tablename__ = 'schedules'
-
-    id = schema.Column(types.Integer, primary_key=True)
-    alias = schema.Column(types.String(255), unique=True)
-
-    week_days = orm.relationship('WeekDay', secondary='week_days_to_schedule')
-    days_of_month = orm.relationship('DayOfMonth',
-                                     secondary='day_of_month_to_schedule')
 
 
 class Podcast(Base):
@@ -103,9 +84,10 @@ class Podcast(Base):
     language = schema.Column(types.String(100), default='English')
     explicit = schema.Column(types.Boolean)
     summary = schema.Column(types.Text(collation='utf8_general_ci')) 
-    schedule_id = schema.Column(types.Integer, schema.ForeignKey('schedules.id'))
 
-    schedule = orm.relationship('Schedule')
+    week_days = orm.relationship('WeekDay', secondary='week_days_to_podcasts')
+    days_of_month = orm.relationship('DayOfMonth',
+                                     secondary='days_of_month_to_podcasts')
     categories = orm.relationship('Category', secondary='categories_to_podcasts')
 
 
