@@ -1,3 +1,5 @@
+import logging
+
 from bs4 import BeautifulSoup as S
 import requests
 
@@ -28,21 +30,26 @@ class Scraper():
                 link = self.get_link(tag.a)
                 if link:
                     yield link
-            else:
-                page += 1
-                for link in self.scrape_cat_page(cat_link, page=page):
-                    yield link
+            page += 1
+            for link in self.scrape_cat_page(cat_link, page=page):
+                yield link
 
     def scrape_feed_url(self, link):
-        links = self.get_soup(link + 'more-info').find_all('a')
-        for link in links:
-            if link.text == 'RSS Podcast Feed':
-                return self.get_link(link)
+        soup = self.get_soup(link + 'more-info')
+        if soup is not None:
+            links = soup.find_all('a')
+            for link in links:
+                if link.text == 'RSS Podcast Feed':
+                    return self.get_link(link)
 
     def get_soup(self, url, params=None):
         params = params or {}
-        res = self.session.get(self.root + url, params=params)
-        return S(res.content, 'lxml')
+        try:
+            res = self.session.get(self.root + url, params=params)
+        except requests.RequestException:
+            logging.exception('error retrieving %s', url)
+        else:
+            return S(res.content, 'lxml')
 
     @staticmethod
     def class_fil(class_name):
@@ -51,5 +58,4 @@ class Scraper():
     @staticmethod
     def get_link(tag):
         return tag.attrs.get('href')
-
 

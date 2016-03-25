@@ -12,7 +12,7 @@ class Parser():
 
     def parse_feed(self, url):
         if url:
-            print(url)
+            logging.info('parsing %s', url)
             res, url = self.get_res(url)
             return self.process_feed(res, url)
 

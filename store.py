@@ -29,7 +29,7 @@ class Storage():
             logging.exception('error storing podcast %s', link)
             self.session.rollback()
         else:
-            yield podcast
+            logging.info('stored %s', podcast.title)
 
     def get_categories(session, categories):
         cats = self.session.query(models.Category).filter(Category.name.in_(

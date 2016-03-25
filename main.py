@@ -1,3 +1,6 @@
+import logging
+import sys
+
 import requests
 
 from parse import Parser
@@ -14,23 +17,20 @@ class Pipeline():
         self.parser = Parser(self.session)
         self.storage = DummyStorage() if dry else Storage()
 
-    def run(self, root, start_page, max_=None):
-        feeds = self.scraper.scrape(root, start_page)
-        count = 0
+    def run(self, root, start_page):
+        feeds = self.scraper.scrape(root, start_page) or []
         for feed in feeds:
-            if not max_ or count < max_:
-                pod_info = self.parser.parse_feed(feed)
-                if pod_info is not None:
-                    pod_info['expected_dur'] = expected_dur(pod_info)
-                    schedule_info = pub_schedule(pod_info)
-                    pod_info.update(schedule_info)
-                    self.storage.store_podcast(pod_info)
-                    count += 1
-            else:
-                break
+            pod_info = self.parser.parse_feed(feed)
+            if pod_info is not None:
+                pod_info['expected_dur'] = expected_dur(pod_info)
+                schedule_info = pub_schedule(pod_info)
+                pod_info.update(schedule_info)
+                self.storage.store_podcast(pod_info)
+                logging.info('stored %s', pod_info)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     pipeline = Pipeline()
     pipeline.run("https://www.blubrry.com", "/programs")
 
