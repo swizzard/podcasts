@@ -56,7 +56,7 @@ class Storage():
             self.session.add(obj)
             self.session.commit()
         except SQLAlchemyError:
-            logging.exception('%s')
+            logging.exception(u'%s', obj)
             self.session.rollback()
         else:
             return obj
