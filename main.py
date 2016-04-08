@@ -1,3 +1,7 @@
+import logging
+import os
+import sys
+
 import requests
 
 from parse import Parser
@@ -7,30 +11,24 @@ from store import DummyStorage, Storage
 
 
 class Pipeline():
-    def __init__(self, dry=False):
+    def __init__(self):
         self.session = requests.Session()
         self.session.headers = {'user-agent': 'shr-podcasts-bot'}
         self.scraper = Scraper(self.session)
         self.parser = Parser(self.session)
-        self.storage = DummyStorage() if dry else Storage()
+        self.storage = Storage()
 
-    def run(self, root, start_page, max_=None):
-        feeds = self.scraper.scrape(root, start_page)
-        count = 0
-        for feed in feeds:
-            if not max_ or count < max_:
-                pod_info = self.parser.parse_feed(feed)
-                if pod_info is not None:
-                    pod_info['expected_dur'] = expected_dur(pod_info)
-                    schedule_info = pub_schedule(pod_info)
-                    pod_info.update(schedule_info)
-                    self.storage.store_podcast(pod_info)
-                    count += 1
-            else:
-                break
+    def run(self, root, start_page):
+        podcasts = (self.parser.parse_feed(feed) for feed in
+                    self.scraper.scrape(root, start_page))
+        for podcast in filter(None, podcasts):
+            self.storage.store_podcast(podcast)
 
 
 if __name__ == '__main__':
+    log_fmt = '%(asctime)s %(levelname)s %(funcName)s| %(message)s'
+    logging.basicConfig(filename=os.path.join(os.getcwd(), 'podcasts.log'),
+                        format=log_fmt)
     pipeline = Pipeline()
     pipeline.run("https://www.blubrry.com", "/programs")
 

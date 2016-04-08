@@ -1,5 +1,7 @@
+import logging 
+
 from bs4 import BeautifulSoup as S
-import requests
+from requests.exceptions import RequestException
 
 
 class Scraper():
@@ -21,8 +23,12 @@ class Scraper():
                 yield link
 
     def scrape_cat_page(self, cat_link, page=0):
-        tags = self.get_soup(cat_link, {'pi': page}).find_all(
-            self.class_fil('item-box'))
+        try:
+            tags = self.get_soup(cat_link, {'pi': page}).find_all(
+                self.class_fil('item-box'))
+        except AttributeError:
+            logging.exception('%s (page %s)', cat_link, page)
+            tags = []
         if tags:
             for tag in tags:
                 link = self.get_link(tag.a)
@@ -41,8 +47,14 @@ class Scraper():
 
     def get_soup(self, url, params=None):
         params = params or {}
-        res = self.session.get(self.root + url, params=params)
-        return S(res.content, 'lxml')
+        full_url = self.root + url
+        try:
+            res = self.session.get(full_url, params=params)
+            res.raise_for_status()
+        except RequestException:
+            logging.exception('url: %s\nparams: %s', full_url, params)
+        else:
+            return S(res.content, 'lxml')
 
     @staticmethod
     def class_fil(class_name):

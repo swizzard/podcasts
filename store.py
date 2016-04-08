@@ -20,32 +20,46 @@ class Storage():
         podcast.title = pod_info['title']
         podcast.summary = pod_info['summary']
         podcast.explicit = pod_info['explicit']
-        podcast.duration = pod_info['expected_dur']
-        podcast.categories = get_categories(session, pod_info['categories'])
-        try:
-            self.session.add(podcast)
-            self.session.commit()
-        except SQLAlchemyError:
-            logging.exception('error storing podcast %s', link)
-            self.session.rollback()
-        else:
-            yield podcast
+        podcast = self.safe_commit(podcast)
+        if podcast is not None:
+            podcast.categories = self.get_categories(pod_info['categories'])
+            podcast.episodes = self.get_episodes(pod_info['episodes'], podcast.id)
+            self.safe_commit(podcast)
 
-    def get_categories(session, categories):
-        cats = self.session.query(models.Category).filter(Category.name.in_(
-            categories)).all()
+    def get_categories(self, categories):
+        cats = self.session.query(models.Category).filter(
+            models.Category.name.in_(categories)).all()
         to_add = categories - {cat.name for cat in cats}
         for cat_name in to_add:
-            new_cat = models.Category(name=cat_name)
-            self.session.add(new_cat)
-            try:
-                self.session.commit()
-            except SQLAlchemyError:
-                logging.exception('error adding category %s', cat_name)
-                self.session.reset()
-            else:
+            new_cat = self.safe_commit(models.Category(name=cat_name))
+            if new_cat:
                 cats.append(new_cat)
         return cats
+
+    def get_episodes(self, episodes, pod_id):
+        out = []
+        for ep in episodes:
+            episode = self.session.query(models.Episode).filter(
+                models.Episode.podcast_id == pod_id,
+                models.Episode.title == ep['title'],
+                models.Episode.week_day == ep['week_day'],
+                models.Episode.day_of_month == ep['day_of_month'],
+                ).one_or_none()
+            if episode is None:  # not in DB
+                episode = self.safe_commit(models.Episode(**ep))
+            if episode is not None:  # successfully committed
+                out.append(episode)
+        return out
+
+    def safe_commit(self, obj):
+        try:
+            self.session.add(obj)
+            self.session.commit()
+        except SQLAlchemyError:
+            logging.exception('%s')
+            self.session.rollback()
+        else:
+            return obj
 
 
 class DummyStorage():

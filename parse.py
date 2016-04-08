@@ -3,7 +3,7 @@ import logging
 from bs4 import BeautifulSoup as S
 from dateutil import parser
 import re
-import requests
+from requests import RequestException
 
 
 class Parser():
@@ -12,7 +12,7 @@ class Parser():
 
     def parse_feed(self, url):
         if url:
-            print(url)
+            logging.info('%s', url)
             res, url = self.get_res(url)
             return self.process_feed(res, url)
 
@@ -31,44 +31,41 @@ class Parser():
                     explicit = self.get_text(chan, 'explicit')
                     pod_info['explicit'] = self.parse_explicit(explicit)
                     pod_info['categories'] = self.chan_categories(chan)
-                    pod_info.update(self.item_info(chan))
+                    pod_info['episodes'] = self.get_episodes(chan)
             except (AttributeError, TypeError):
-                print(res)
-                raise
+                logging.exception('url: %s', url)
             else:
                 return pod_info
 
-    def item_info(self, res):
+    def get_episodes(self, res):
         items = res.find_all('item')
-        item_info = {}
-        pubs = []
-        durs = []
-        descs = []
-        try:
-            pubs = [parser.parse(item.pubDate.text) for item in
-                                 items]
-        except (AttributeError, ValueError):
-            pass
-        try:
-            durs = self.get_durs(items)
-        except (AttributeError, TypeError, ValueError):
-            pass
-        try:
-            descs = [S(item.description.text, 'lxml').text for item in items]
-        except (AttributeError, TypeError, ValueError):
-            pass
-        item_info['pubs'] = pubs
-        item_info['durs'] = durs
-        item_info['descs'] = descs
-        return item_info
+        out = []
+        for item in items:
+            try:
+                pub = parser.parse(item.pubDate.text)
+            except (TypeError, ValueError):
+                pub = None
+            try:
+                desc = S(item.description.text, 'lxml').text
+            except TypeError:
+                desc = ''
+            title = item.title.text
+            dur = self.get_dur(item)
+            out.append({'title': title,
+                        'week_day': pub.weekday() if pub else None,
+                        'day_of_month': pub.day if pub else None,
+                        'date': pub,
+                        'duration': dur,
+                        'description': desc})
+        return out
 
     def get_res(self, url):
         body = None
         link = None
         try:
             req = self.session.get(url)
-        except requests.RequestException:
-            logging.exception('error getting %s', url)
+        except RequestException:
+            logging.exception('url: %s', url)
         else:
             if req.ok:
                 body = S(req.content, 'xml')
@@ -95,17 +92,13 @@ class Parser():
             dur += int(grp) * (60 ** idx)
         return dur
 
-    def get_durs(self, items):
-        durs = []
-        for item in items:
-            if item.duration is not None:
-                durs.append(self.parse_duration(item.duration.text))
-            elif item.content is not None:
-                dur = item.content.get('duration')
-                if dur is not None:
-                    dur = int(dur)
-                durs.append(dur)
-        return durs
+    def get_dur(self, item):
+        dur = 0
+        if item.duration is not None:
+            dur = self.parse_duration(item.duration.text)
+        elif item.content is not None:
+            dur = item.content.get('duration', 0)
+        return dur
 
     @staticmethod
     def chan_categories(res):
