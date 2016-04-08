@@ -21,11 +21,6 @@ def pub_schedule(pod_info):
     month_days = np.array([pub.day for pub in pubs])
     wd_freqs = get_freqs(week_days)
     md_freqs = get_freqs(month_days) 
-    # if len(wd_freqs) >= 5:
-    #     out['schedule'] = 'daily'
-    # if wdf_std < mdf_std:
-    #     wdf_std = np.std(np.array(list(wd_freqs.values())))
-    #     mdf_std = np.std(np.array(list(md_freqs.values())))
     out['week_days'] = wd_freqs
     out['month_days'] = md_freqs
     return out
