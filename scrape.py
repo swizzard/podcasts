@@ -40,10 +40,12 @@ class Scraper():
                     yield link
 
     def scrape_feed_url(self, link):
-        links = self.get_soup(link + 'more-info').find_all('a')
-        for link in links:
-            if link.text == 'RSS Podcast Feed':
-                return self.get_link(link)
+        soup = self.get_soup(link + 'more-info')
+        if soup is not None:
+            links = self.get_soup(link + 'more-info').find_all('a')
+            for link in links:
+                if link.text == 'RSS Podcast Feed':
+                    return self.get_link(link)
 
     def get_soup(self, url, params=None):
         params = params or {}

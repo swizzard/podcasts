@@ -28,6 +28,7 @@ class Parser():
                     pod_info['author'] = self.get_text(chan, 'author')
                     pod_info['title'] = self.get_text(chan, 'title')
                     pod_info['summary'] = self.get_text(chan, 'summary')
+                    pod_info['homepage'] = self.get_text(chan, 'link')
                     explicit = self.get_text(chan, 'explicit')
                     pod_info['explicit'] = self.parse_explicit(explicit)
                     pod_info['categories'] = self.chan_categories(chan)
@@ -110,7 +111,8 @@ class Parser():
     @staticmethod
     def get_text(res, attr):
         a = getattr(res, attr)
-        if a is None:
+        if hasattr(a, 'text'):
+            return a.text or ''
+        else:
             return ''
-        return a.text or ''
 

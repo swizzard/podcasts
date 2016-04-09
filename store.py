@@ -42,12 +42,9 @@ class Storage():
             episode = self.session.query(models.Episode).filter(
                 models.Episode.podcast_id == pod_id,
                 models.Episode.title == ep['title'],
-                models.Episode.week_day == ep['week_day'],
-                models.Episode.day_of_month == ep['day_of_month'],
-                ).one_or_none()
-            if episode is None:  # not in DB
-                episode = self.safe_commit(models.Episode(**ep))
-            if episode is not None:  # successfully committed
+                models.Episode.day_of_month == ep['date'],
+                ).one_or_none() or self.safe_commit(models.Episode(**ep))
+            if episode is not None:
                 out.append(episode)
         return out
 

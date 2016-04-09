@@ -1,6 +1,6 @@
 import json
 
-from sqlalchemy import create_engine, orm, schema, types
+from sqlalchemy import UniqueConstraint, create_engine, orm, schema, types
 from sqlalchemy.dialects.mysql import ENUM
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -45,6 +45,7 @@ class Podcast(Base):
     duration = schema.Column(types.String(255), index=True, nullable=True)
     language = schema.Column(types.String(100), default='English')
     explicit = schema.Column(types.Boolean)
+    homepage = schema.Column(types.String(255))
     summary = schema.Column(types.Text(collation='utf8_general_ci')) 
 
     week_days = orm.relationship('WeekDay', secondary='week_days_to_podcasts')
@@ -75,6 +76,7 @@ class Podcast(Base):
 
 class Episode(Base):
     __tablename__ = 'episodes'
+    __table_args__ = (UniqueConstraint('title', 'podcast_id', 'date'),)
 
     id = schema.Column(types.Integer, primary_key=True)
     duration = schema.Column(types.Integer)
