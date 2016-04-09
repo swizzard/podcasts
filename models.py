@@ -4,6 +4,7 @@ from sqlalchemy import UniqueConstraint, create_engine, orm, schema, types
 from sqlalchemy.dialects.mysql import ENUM
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy_utils.types.password import PasswordType
 
 
 with open('config.json') as f:
@@ -29,6 +30,24 @@ categories_to_podcasts = schema.Table('categories_to_podcasts', Base.metadata,
                                       schema.Column('podcast_id', types.Integer,
                                                     schema.ForeignKey('podcasts.id')))
 
+users_to_likes = schema.Table('users_to_podcasts_likes', Base.metadata,
+                              schema.Column('id', types.BigInteger,
+                                            primary_key=True),
+                              schema.Column('podcast_id', types.Integer,
+                                            schema.ForeignKey('podcasts.id')),
+                              schema.Column('user_id', types.Integer,
+                                            schema.ForeignKey('users.id')))
+
+
+users_to_dislikes = schema.Table('users_to_podcasts_dislikes', Base.metadata,
+                                 schema.Column('id', types.BigInteger,
+                                               primary_key=True),
+                                 schema.Column('podcast_id', types.Integer,
+                                               schema.ForeignKey('podcasts.id')),
+                                 schema.Column('user_id', types.Integer,
+                                               schema.ForeignKey('users.id')))
+
+
 class Category(Base):
     __tablename__ = 'categories'
 
@@ -53,6 +72,10 @@ class Podcast(Base):
                                      secondary='days_of_month_to_podcasts')
     categories = orm.relationship('Category', secondary='categories_to_podcasts')
     episodes = orm.relationship('Episode', backref='podcast')
+    likers = orm.relationship('User', secondary='users_to_podcasts_likes',
+                              backref='likes')
+    dislikers = orm.relationship('User', secondary='users_to_podcasts_dislikes',
+                                 backref='dislikes')
 
     def __repr__(self):
         return '<Podcast: {}>'.format(self.title)
@@ -73,6 +96,14 @@ class Podcast(Base):
     def durations(self):
         return [ep.duration for ep in self.episodes]
 
+    @hybrid_property
+    def likers(self):
+        return [user for user in self.likers if user.public]
+
+    @hybrid_property
+    def dislikers(self):
+        return [user for user in self.dislikers if user.public]
+
 
 class Episode(Base):
     __tablename__ = 'episodes'
@@ -86,6 +117,19 @@ class Episode(Base):
     week_day = schema.Column(types.Integer)
     day_of_month = schema.Column(types.Integer)
     date = schema.Column(types.DateTime)
+
+
+class User(Base):
+    __tablename__ = 'users'
+
+    id = schema.Column(types.Integer, primary_key=True)
+    name = schema.Column(types.String(255, collation='utf8_general_ci'),
+                         unique=True, nullable=False, index=True)
+    password = schema.Column(PasswordType(schemes=['pbkdf2_sha512']),
+                             unique=True, nullable=False)
+    email = schema.Column(types.String(255), unique=True, nullable=True,
+                          index=True)
+    public = schema.Column(types.Boolean)
 
 
 Session = orm.sessionmaker(bind=engine)
