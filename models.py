@@ -48,9 +48,6 @@ class Podcast(Base):
     homepage = schema.Column(types.String(255))
     summary = schema.Column(types.Text(collation='utf8_general_ci')) 
 
-    week_days = orm.relationship('WeekDay', secondary='week_days_to_podcasts')
-    days_of_month = orm.relationship('DayOfMonth',
-                                     secondary='days_of_month_to_podcasts')
     categories = orm.relationship('Category', secondary='categories_to_podcasts')
     episodes = orm.relationship('Episode', backref='podcast')
 
