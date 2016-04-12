@@ -27,7 +27,7 @@ class Scraper():
             tags = self.get_soup(cat_link, {'pi': page}).find_all(
                 self.class_fil('item-box'))
         except AttributeError:
-            logging.exception('%s (page %s)', cat_link, page)
+            logging.exception('{} (page {})'.format(cat_link, page))
             tags = []
         if tags:
             for tag in tags:
@@ -51,10 +51,10 @@ class Scraper():
         params = params or {}
         full_url = self.root + url
         try:
-            res = self.session.get(full_url, params=params)
+            res = self.session.get(full_url, params=params, timeout=120.0)
             res.raise_for_status()
         except RequestException:
-            logging.exception('url: %s\nparams: %s', full_url, params)
+            logging.exception('url: {}\nparams: {}'.format(full_url, params))
         else:
             return S(res.content, 'lxml')
 

@@ -1,6 +1,6 @@
 import logging
 
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.sql import select
 
 import models
@@ -27,13 +27,16 @@ class Storage():
             self.safe_commit(podcast)
 
     def get_categories(self, categories):
-        cats = self.session.query(models.Category).filter(
-            models.Category.name.in_(categories)).all()
-        to_add = categories - {cat.name for cat in cats}
-        for cat_name in to_add:
-            new_cat = self.safe_commit(models.Category(name=cat_name))
-            if new_cat:
-                cats.append(new_cat)
+        cats = []
+        if categories:
+            cats = self.session.query(models.Category).filter(
+                models.Category.name.in_(categories)).all()
+            to_add = categories - {cat.name for cat in cats}
+            for cat_name in to_add:
+                new_cat = self.safe_commit(models.Category(
+                    name=cat_name))
+                if new_cat:
+                    cats.append(new_cat)
         return cats
 
     def get_episodes(self, episodes, pod_id):
@@ -42,8 +45,17 @@ class Storage():
             episode = self.session.query(models.Episode).filter(
                 models.Episode.podcast_id == pod_id,
                 models.Episode.title == ep['title'],
-                models.Episode.day_of_month == ep['date'],
-                ).one_or_none() or self.safe_commit(models.Episode(**ep))
+                models.Episode.date == ep['date'],
+                ).one_or_none()
+            if episode is None:
+                new_episode = models.Episode(podcast_id=pod_id,
+                                             duration=ep['duration'],
+                                             title=ep['title'],
+                                             description=ep['description'],
+                                             week_day=ep['week_day'],
+                                             day_of_month=ep['day_of_month'],
+                                             date=ep['date'])
+                episode = self.safe_commit(new_episode)
             if episode is not None:
                 out.append(episode)
         return out
@@ -52,18 +64,16 @@ class Storage():
         try:
             self.session.add(obj)
             self.session.commit()
-        except SQLAlchemyError:
-            logging.exception(u'%s', obj)
+            try:
+                logging.info(obj)
+            except UnicodeEncodeError as err:
+                import pdb
+                pdb.set_trace()
+        except SQLAlchemyError as err:
+            import pdb
+            pdb.set_trace()
+            logging.exception('{}'.format(obj).encode('ascii', 'replace'))
             self.session.rollback()
         else:
             return obj
-
-
-class DummyStorage():
-    def __init__(self):
-        pass
-
-    @staticmethod
-    def store_podcast(pod_info):
-        return pod_info
 

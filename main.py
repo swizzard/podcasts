@@ -2,12 +2,16 @@ import logging
 import os
 import sys
 
+log_fmt = '%(asctime)s %(levelname)s %(funcName)s| %(message)s'
+logging.basicConfig(filename=os.path.join(os.getcwd(), 'podcasts.log'),
+                    format=log_fmt, level=logging.INFO)
+
 import requests
 
 from parse import Parser
 from post_process import expected_dur, pub_schedule
 from scrape import Scraper
-from store import DummyStorage, Storage
+from store import Storage
 
 
 class Pipeline():
@@ -26,9 +30,6 @@ class Pipeline():
 
 
 if __name__ == '__main__':
-    log_fmt = '%(asctime)s %(levelname)s %(funcName)s| %(message)s'
-    logging.basicConfig(filename=os.path.join(os.getcwd(), 'podcasts.log'),
-                        format=log_fmt)
     pipeline = Pipeline()
     pipeline.run("https://www.blubrry.com", "/programs")
 

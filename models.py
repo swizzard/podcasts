@@ -16,7 +16,8 @@ conn_str = 'mysql+pymysql://{username}:{password}@{host}/{dbname}'.format(
         dbname=cfg['db_name'])
 
 
-engine = create_engine(conn_str + '?charset=utf8', echo=bool(cfg['echo']))
+engine = create_engine(conn_str + '?charset=utf8mb4', convert_unicode=True,
+                       echo=bool(cfg['echo']))
 
 
 Base = declarative_base(bind=engine)
@@ -59,13 +60,13 @@ class Podcast(Base):
     __tablename__ = 'podcasts'
 
     id = schema.Column(types.Integer, primary_key=True)
-    title = schema.Column(types.String(255, collation='utf8_general_ci'))
+    title = schema.Column(types.Text(collation='utf8mb4_general_ci'))
     feed_url = schema.Column(types.String(255), unique=True, nullable=False)
-    duration = schema.Column(types.String(255), index=True, nullable=True)
     language = schema.Column(types.String(100), default='English')
+    author = schema.Column(types.Text(collation='utf8mb4_general_ci'))
     explicit = schema.Column(types.Boolean)
     homepage = schema.Column(types.String(255))
-    summary = schema.Column(types.Text(collation='utf8_general_ci')) 
+    summary = schema.Column(types.Text(collation='utf8mb4_general_ci')) 
 
     week_days = orm.relationship('WeekDay', secondary='week_days_to_podcasts')
     days_of_month = orm.relationship('DayOfMonth',
@@ -107,29 +108,35 @@ class Podcast(Base):
 
 class Episode(Base):
     __tablename__ = 'episodes'
-    __table_args__ = (UniqueConstraint('title', 'podcast_id', 'date'),)
+    __table_args__ = (UniqueConstraint('title', 'podcast_id', 'date',
+                                       name='unique_ep'),)
 
     id = schema.Column(types.Integer, primary_key=True)
     duration = schema.Column(types.Integer)
-    title = schema.Column(types.String(255, collation='utf8_general_ci'))
-    description = schema.Column(types.Text)
+    title = schema.Column(types.String(191, collation='utf8mb4_general_ci'))
+    description = schema.Column(types.Text(collation='utf8mb4_general_ci'))
     podcast_id = schema.Column(types.Integer, schema.ForeignKey('podcasts.id'))
     week_day = schema.Column(types.Integer)
     day_of_month = schema.Column(types.Integer)
     date = schema.Column(types.DateTime)
 
+    def __repr__(self):
+        return '<Episode: {} ({})>'.format(self.title, self.podcast_id)
 
 class User(Base):
     __tablename__ = 'users'
 
     id = schema.Column(types.Integer, primary_key=True)
-    name = schema.Column(types.String(255, collation='utf8_general_ci'),
+    name = schema.Column(types.String(191, collation='utf8mb4_general_ci'),
                          unique=True, nullable=False, index=True)
     password = schema.Column(PasswordType(schemes=['pbkdf2_sha512']),
                              unique=True, nullable=False)
     email = schema.Column(types.String(255), unique=True, nullable=True,
                           index=True)
     public = schema.Column(types.Boolean)
+
+    def __repr__(self):
+        return '<User: {} ({})>'.format(name, email)
 
 
 Session = orm.sessionmaker(bind=engine)

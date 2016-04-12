@@ -12,7 +12,7 @@ class Parser():
 
     def parse_feed(self, url):
         if url:
-            logging.info('%s', url)
+            logging.info('{}'.format(url))
             res, url = self.get_res(url)
             return self.process_feed(res, url)
 
@@ -34,7 +34,7 @@ class Parser():
                     pod_info['categories'] = self.chan_categories(chan)
                     pod_info['episodes'] = self.get_episodes(chan)
             except (AttributeError, TypeError):
-                logging.exception('url: %s', url)
+                logging.exception('url: {}'.format(url))
             else:
                 return pod_info
 
@@ -47,33 +47,32 @@ class Parser():
             except (TypeError, ValueError):
                 pub = None
             try:
-                desc = S(item.description.text, 'lxml').text
-            except TypeError:
+                desc = self.fmt_text(S(item.description.text, 'lxml').text)
+            except (TypeError, AttributeError):
                 desc = ''
-            title = item.title.text
             dur = self.get_dur(item)
-            out.append({'title': title,
+            out.append({'title': self.fmt_text(item.title.text)[:191],
                         'week_day': pub.weekday() if pub else None,
                         'day_of_month': pub.day if pub else None,
                         'date': pub,
                         'duration': dur,
-                        'description': desc})
+                        'description': desc[:65535]})
         return out
 
     def get_res(self, url):
         body = None
         link = None
         try:
-            req = self.session.get(url)
+            req = self.session.get(url, timeout=120.0)
         except RequestException:
-            logging.exception('url: %s', url)
+            logging.exception('url: {}'.format(url))
         else:
             if req.ok:
                 body = S(req.content, 'xml')
                 link = req.url
             else:
-                logging.error('got %s retrieving %s', req.status_code,
-                              req.url)
+                logging.error('got {} retrieving {}'.format(req.status_code,
+                                                            req.url))
         return body, link
 
     @staticmethod
@@ -101,18 +100,21 @@ class Parser():
             dur = item.content.get('duration', 0)
         return dur
 
-    @staticmethod
-    def chan_categories(res):
+    def chan_categories(self, res):
         def itcat(tag):
             return tag.name == 'category' and \
                 tag.namespace == 'http://www.itunes.com/dtds/podcast-1.0.dtd'
-        return {cat['text'] for cat in res.find_all(itcat)}
+        return {self.fmt_text(cat.get('text', '')) for cat in
+                res.find_all(itcat)}
 
-    @staticmethod
-    def get_text(res, attr):
+    def get_text(self, res, attr):
         a = getattr(res, attr)
         if hasattr(a, 'text'):
-            return a.text or ''
+            return self.fmt_text(a.text) or ''
         else:
             return ''
+
+    @staticmethod
+    def fmt_text(txt):
+        return txt.strip()
 
