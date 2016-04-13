@@ -3,8 +3,9 @@ import os
 import sys
 
 log_fmt = '%(asctime)s %(levelname)s %(funcName)s| %(message)s'
-logging.basicConfig(filename=os.path.join(os.getcwd(), 'podcasts.log'),
-                    format=log_fmt, level=logging.INFO)
+handler = logging.FileHandler(os.path.join(os.getcwd(), 'podcasts.log'),
+                              mode='w', encoding='utf-8')
+logging.basicConfig(format=log_fmt, handlers=[handler], level=logging.INFO)
 
 import requests
 

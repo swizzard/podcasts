@@ -64,15 +64,11 @@ class Storage():
         try:
             self.session.add(obj)
             self.session.commit()
-            try:
-                logging.info(obj)
-            except UnicodeEncodeError as err:
-                import pdb
-                pdb.set_trace()
+            logging.info('{}'.format(obj))
         except SQLAlchemyError as err:
             import pdb
             pdb.set_trace()
-            logging.exception('{}'.format(obj).encode('ascii', 'replace'))
+            logging.exception('{}'.format(obj))
             self.session.rollback()
         else:
             return obj

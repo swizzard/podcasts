@@ -56,7 +56,7 @@ class Parser():
                         'day_of_month': pub.day if pub else None,
                         'date': pub,
                         'duration': dur,
-                        'description': desc[:65535]})
+                        'description': desc[:49087]})
         return out
 
     def get_res(self, url):
