@@ -38,8 +38,6 @@ class InvalidSubcoll(falcon.HTTPNotFound):
         self.valid = valid
 
     def to_dict(self, obj_type=dict):
-        out = obj_type()
-        out['path'] = self.path
         msg = '{} is not a valid subcollection of {}. Please choose from\n'
         msg = msg.format(invalid, self.model_name) + '\n'.join(self.valid)
         out['message'] = msg
@@ -123,10 +121,16 @@ class SubcollMixin(DBResource):
                 self.handle_res(objs, req, resp, model=subcoll_model)
 
 
-class PodcastsResource(DBResource):
-    model = models.Podcast
+class SearchResource(DBResource):
+    model = None
+    model_names = {'podcasts': models.Podcast, 'episodes': models.Episode,
+                   'categories': models.Category}
 
-    def on_get(self, req, resp):
+    def on_get(self, req, resp, model_name):
+        try:
+            self.model = self.model_names[model_name]
+        except KeyError:
+
             filts = []
             queries = [(req.get_param('title'),
                         lambda t: models.Podcast.title.like('{}%'.format(t))),
