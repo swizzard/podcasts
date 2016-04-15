@@ -70,10 +70,11 @@ class Podcast(Base):
 
     categories = orm.relationship('Category', secondary='categories_to_podcasts')
     episodes = orm.relationship('Episode', backref='podcast')
-    likers = orm.relationship('User', secondary='users_to_podcasts_likes',
-                              backref='likes')
-    dislikers = orm.relationship('User', secondary='users_to_podcasts_dislikes',
-                                 backref='dislikes')
+    liking_users = orm.relationship('User', secondary='users_to_podcasts_likes',
+                                    backref='likes')
+    disliking_users = orm.relationship('User',
+                                       secondary='users_to_podcasts_dislikes',
+                                       backref='dislikes')
 
     def __repr__(self):
         return '<Podcast: {}>'.format(self.title)
@@ -96,11 +97,11 @@ class Podcast(Base):
 
     @hybrid_property
     def likers(self):
-        return [user for user in self.likers if user.public]
+        return [user for user in self.liking_users if user.public]
 
     @hybrid_property
     def dislikers(self):
-        return [user for user in self.dislikers if user.public]
+        return [user for user in self.disliking_users if user.public]
 
 
 class Episode(Base):
@@ -133,7 +134,7 @@ class User(Base):
     public = schema.Column(types.Boolean)
 
     def __repr__(self):
-        return '<User: {} ({})>'.format(name, email)
+        return '<User: {} ({})>'.format(self.name, self.email)
 
 
 Session = orm.sessionmaker(bind=engine)

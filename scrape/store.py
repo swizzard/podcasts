@@ -48,8 +48,9 @@ class Storage():
                 models.Episode.date == ep['date'],
                 ).one_or_none()
             if episode is None:
+                duration = min([2147483647, ep['duration']])
                 new_episode = models.Episode(podcast_id=pod_id,
-                                             duration=ep['duration'],
+                                             duration=duration,
                                              title=ep['title'],
                                              description=ep['description'],
                                              week_day=ep['week_day'],
@@ -65,6 +66,9 @@ class Storage():
             self.session.add(obj)
             self.session.commit()
             logging.info('{}'.format(obj))
+        except IntegrityError:
+            logging.error('integrity error thrown by {}'.format(obj))
+            self.session.rollback()
         except SQLAlchemyError as err:
             import pdb
             pdb.set_trace()
