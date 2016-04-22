@@ -1,9 +1,10 @@
 import json
 
+from sqlalchemy import select, exists, func
 from sqlalchemy import UniqueConstraint, create_engine, orm, schema, types
 from sqlalchemy.dialects.mysql import ENUM
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
 from sqlalchemy_utils.types.password import PasswordType
 
 
@@ -68,7 +69,8 @@ class Podcast(Base):
     homepage = schema.Column(types.String(255))
     summary = schema.Column(types.Text(collation='utf8mb4_general_ci')) 
 
-    categories = orm.relationship('Category', secondary='categories_to_podcasts')
+    categories = orm.relationship('Category', secondary='categories_to_podcasts',
+                                  backref='podcasts')
     episodes = orm.relationship('Episode', backref='podcast')
     liking_users = orm.relationship('User', secondary='users_to_podcasts_likes',
                                     backref='likes')
@@ -87,13 +89,46 @@ class Podcast(Base):
     def days_of_month(self):
         return [ep.day_of_month for ep in self.episodes]
 
+    @hybrid_method
+    def published_on_month_day(self, day_of_month):
+        return len([day for day in self.days_of_month if day == day_of_month])
+
+    @published_on_month_day.expression
+    def published_on_month_day(cls, week_day):
+        return select([func.count(Episode.id)]).where(
+            Episode.podcast_id == cls.id).where(
+            Episode.day_of_month == week_day).label(
+            'published_on_month_day')
+
     @hybrid_property
     def week_days(self):
         return [ep.week_day for ep in self.episodes]
 
+    @hybrid_method
+    def published_on_week_day(self, week_day):
+        return len([day for day in self.week_days if day == week_day])
+
+    @published_on_week_day.expression
+    def published_on_week_day(cls, week_day):
+        return select([func.count(Episode.id)]).where(
+            Episode.podcast_id == cls.id).where(
+            Episode.week_day == week_day).label(
+            'published_on_week_day')
+
     @hybrid_property
     def durations(self):
         return [ep.duration for ep in self.episodes]
+
+    @hybrid_method
+    def longer_than(self, comp_dur):
+        return len([dur for dur in self.durations if dur > comp_dur])
+
+    @longer_than.expression
+    def longer_than(cls, comp_dur):
+        return select([func.count(Episode.id)]).where(
+            Episode.podcast_id == cls.id).where(
+            Episode.duration > comp_dur).label(
+            'longer_than')
 
     @hybrid_property
     def likers(self):
@@ -102,6 +137,20 @@ class Podcast(Base):
     @hybrid_property
     def dislikers(self):
         return [user for user in self.disliking_users if user.public]
+
+    @hybrid_property
+    def last_published(self):
+        return max(ep.date for ep in self.episodes)
+
+    @hybrid_method
+    def published_since(self, comp_date):
+        return self.last_published >= comp_date
+
+    @published_since.expression
+    def published_since(cls, comp_date):
+        return select([func.count(Episode.id)]).where(
+            Episode.podcast_id == cls.id).where(
+            Episode.date >= comp_date).label('pubd')
 
 
 class Episode(Base):
@@ -120,6 +169,7 @@ class Episode(Base):
 
     def __repr__(self):
         return '<Episode: {} ({})>'.format(self.title, self.podcast_id)
+
 
 class User(Base):
     __tablename__ = 'users'
