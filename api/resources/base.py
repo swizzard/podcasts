@@ -18,7 +18,7 @@ class DBResource():
     def handle_db_err(self, err, req, resp):
         resp.status = falcon.HTTP_500
         resp.body = self.dumps({'path': req.path,
-                                'type': err.__class__.__name__,
+                                'err': err.__class__.__name__,
                                 'args': err.args})
         self.session.rollback()
 
@@ -26,7 +26,7 @@ class DBResource():
         model = model if model is not None else self.model
         objs = objs if objs is not None else []
         out = {'path': req.path,
-               'type': model.__name__,
+               'model': model.__name__,
                'result': objs}
         out.update(body_kwargs)
         resp.body = self.dumps(out)
