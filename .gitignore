@@ -3,3 +3,5 @@ config.json
 *.pyc
 *.log
 venv/
+node_modules
+src/js/dist
