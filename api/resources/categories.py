@@ -11,9 +11,10 @@ class CategoryResource(DBResource):
         self.paginator = Paginator()
 
     def on_get(self, req, resp, category_id=None):
-        if category is not None:
+        print(category_id)
+        if category_id != 'undefined':
             category = self.session.query(models.Category).get(category_id)
-            self.handle_one(category)
+            self.handle_one(category, req, resp)
         else:
             query = self.session.query(models.Category)
             try:
