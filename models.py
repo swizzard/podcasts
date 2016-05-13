@@ -138,6 +138,26 @@ class Podcast(Base):
     def dislikers(self):
         return [user for user in self.disliking_users if user.public]
 
+    @hybrid_method
+    def liked_by(self, user):
+        return (user in self.liking_users)
+
+    @liked_by.expression
+    def liked_by(cls, user):
+        return select([func.count(users_to_likes.id)]).where(
+            users_to_likes.user_id == User.id).where(
+            users_to_likes.podcast_id == cls.id).label('liked_by')
+
+    @hybrid_method
+    def disliked_by(self, user):
+        return (user in self.disliking_users)
+
+    @disliked_by.expression
+    def disliked_by(cls, user):
+        return select([func.count(users_to_dislikes.id)]).where(
+            users_to_dislikes.user_id == User.id).where(
+            users_to_dislikes.podcast_id == cls.id).label('disliked_by')
+
     @hybrid_property
     def last_published(self):
         return max(ep.date for ep in self.episodes)

@@ -3,17 +3,15 @@ body {
     font-family: Arial, sans-serif;
 }
 
-thead {
-    font-size: 12px;
-    text-transform: uppercase;
-    font-weight: bold;
+.searcher {
+    font-size: 18px;
 }
 
-tbody {
-    font-size: 10px;
+.user-widget {
+  font-size: 10px;
 }
 
-td {
-    border: 3px solid black;
+#moar {
+  color: #46f216;
+  font-size: 20px;
 }
-

@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -65,10 +66,10 @@ class PodcastUsersResource(DBResource):
 
 class SearchResource(DBResource):
     model = models.Podcast
+    limit = 25
 
     def __init__(self):
         super().__init__(models.Podcast)
-        self.paginator = Paginator()
         self.queries = [('title', self.title_filter),
                         ('author', self.author_filter),
                         ('homepage', lambda p: models.Podcast.homepage == p),
@@ -76,23 +77,28 @@ class SearchResource(DBResource):
                         ('day_of_month', self.dom_filter),
                         ('length', lambda d: models.Podcast.longer_than(d)),
                         ('category', self.category_filter),
-                        ('published_since', self.published_since_filter)]
+                        ('published_since', self.published_since_filter),
+                        ('language', lambda l: models.Podcast.language == l)]
 
-    def on_get(self, req, resp):
+    def on_post(self, req, resp):
+        js_query = json.loads(req.stream.read().decode())
         filts = []
-        params = {}
         for param, f in self.queries:
-            value = req.get_param(param)
+            value = js_query.get(param)
             if value:
                 filts.append(f(value))
-                params[param] = value
-        query = self.session.query(self.model).filter(*filts)
+        db_query = self.session.query(self.model).filter(*filts)
+        page = js_query.get('page', 1)
+        if page > 1:
+            db_query = db_query.offset(self.limit * page)
+        db_query = db_query.limit(self.limit)
         try:
-            pagination, res = self.paginator.paginate(req, query)
+            res = db_query.all()
         except SQLAlchemyError:
             self.handle_db_err(err, res, req)
         else:
-            self.handle_res(res, req, resp, pagination=pagination)
+            js_query['page'] = page + 1
+            self.handle_res(res, req, resp, query=js_query)
 
     @staticmethod
     def author_filter(auth):
@@ -116,6 +122,6 @@ class SearchResource(DBResource):
 
     @staticmethod
     def published_since_filter(date_str):
-        parsed = datetime.strptime('%y-%m-%d')
+        parsed = datetime.strptime(date_str, '%Y-%m-%d')
         return models.Podcast.published_since(parsed)
 

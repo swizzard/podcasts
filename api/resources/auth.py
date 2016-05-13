@@ -6,7 +6,8 @@ import models
 from base import DBResource
 from helpers import Noncer
 
-class LoginResource(DBResource):
+
+class AuthResource(DBResource):
     def __init__(self):
         super().__init__()
         self.noncer = Noncer()
@@ -16,7 +17,7 @@ class LoginResource(DBResource):
 
     def on_post(self, req, resp):
         try:
-            body = json.load(req.stream)
+            body = json.loads(req.stream.read().decode())
         except (TypeError, ValueError):
             self.handle_bad_login()
         else:
@@ -34,7 +35,8 @@ class LoginResource(DBResource):
                     if user.password == pwd:
                         nonce = noncer.get_token(username)
                         msg = {'token': nonce,
-                               'expiration': nonce.expiration}
+                               'expiration': nonce.expiration,
+                               'id': user.id}
                         resp.body = json.dumps(msg)
                     else:
                         self.handle_bad_login()

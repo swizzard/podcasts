@@ -2,7 +2,7 @@ import json
 import logging
 
 import falcon
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 import models
 from api.resources.base import DBResource
@@ -39,8 +39,11 @@ class UserResource(DBResource):
                 except IntegrityError as ierr:
                     self.session.rollback()
                     if ierr.orig.args[0] == 1062:
-                        raise falcon.HTTPConflict(
-                            'User {} already exists'.format(username))
+                        err = {
+                            'title': 'User exists',
+                            'description': 'User {} already exists'.format(username)
+                        }
+                        raise falcon.HTTPConflict(**err)
                     else:
                         self.handle_db_err(ierr, req, resp)
                 except SQLAlchemyError as err:
@@ -88,8 +91,7 @@ class UserPodcastsResource(DBResource):
                     self.handle_res(res, req, resp, models.Podcast,
                                     pagination=pagination)
 
-    def on_put(self, req, resp, user_id, rel_type, podcast_id):
-        validate_rel_type(rel_type)
+    def get_user_podcast(self, user_id, podcast_id, req):
         user = self.session.query(models.User).get(user_id)
         if user is None:
             raise falcon.HTTPNotFound('No such user')
@@ -98,18 +100,41 @@ class UserPodcastsResource(DBResource):
         else:
             podcast = self.session.query(models.Podcast).get(podcast_id)
             if podcast is None:
-                raise falcon.HTTPNotFound('No such podcast') 
+                raise falcon.HTTPNotFound('No such podcast')
             else:
-                getattr(user, rel_type).append(podcast)
-                self.session.add(user)
-                try:
-                    self.session.commit()
-                except SQLAlchemyError as err:
-                    self.handle_db_err(err, req, resp)
-                else:
-                    resp_body = {'user_id': user_id, 'podcast_id': podcast_id,
-                                 'added_to': rel_type, 'success': True}
-                    self.handle_one(resp_body, req, resp)
+                return user, podcast
+
+    def on_put(self, req, resp, user_id, rel_type, podcast_id):
+        validate_rel_type(rel_type)
+        user, podcast = self.get_user_podcast(user_id, podcast_id, req)
+        getattr(user, rel_type).append(podcast)
+        self.session.add(user)
+        try:
+            self.session.commit()
+        except SQLAlchemyError as err:
+            self.handle_db_err(err, req, resp)
+        else:
+            resp_body = {'user_id': user_id, 'podcast_id': podcast_id,
+                            'added_to': rel_type, 'success': True}
+            self.handle_one(resp_body, req, resp)
+
+    def on_delete(self, req, resp, user_id, rel_type, podcast_id):
+        validate_rel_type(rel_type)
+        user, podcast = self.get_user_podcast(user_id, podcast_id, req)
+        res = getattr(user, rel_type).all()
+        for podcast in res:
+            if podcast.id == podcast_id:
+                res.remove(podcast)
+                break
+        self.session.add(user)
+        try:
+            self.session.commit()
+        except SQLAlchemyError as err:
+            self.handle_db_err(err, req, resp)
+        else:
+            resp_body = {'user_id': user_id, 'podcast_id': podcast_id,
+                         'removed_from': rel_type, 'success': True}
+            self.handle_one(resp_body, req, resp)
 
 
 class LoginResource(DBResource):
@@ -131,7 +156,8 @@ class LoginResource(DBResource):
                 if user and (password == user.password):
                     token = self.validator.noncer.get_token(username)
                     auth_resp = {'username': username,
-                                 'token': token}
+                                 'token': token,
+                                 'userId': user.id}
                     self.handle_one(auth_resp, req, resp)
                 else:
                     self.handle_bad_login()
@@ -139,6 +165,6 @@ class LoginResource(DBResource):
                 self.handle_db_err(err, req, resp)
 
     def handle_bad_login(self):
-        raise falcon.HTTPBadRequest('Invalid login attempt',
-                                    'Invalid login attempt')
+        msg = 'Invalid login attempt'
+        raise falcon.HTTPBadRequest(msg, msg)
 

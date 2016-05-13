@@ -29,12 +29,10 @@ class DBResource():
                'model': model.__name__,
                'result': objs}
         out.update(body_kwargs)
-        resp.append_header('Access-Control-Allow-Origin', '*')
         resp.body = self.dumps(out)
 
     def handle_one(self, obj, req, resp, **body_kwargs):
         if obj is None:
-            resp.append_header('Access-Control-Allow-Origin', '*')
             raise falcon.HTTPNotFound()
         else:
             obj = [obj] if obj is not None else []
