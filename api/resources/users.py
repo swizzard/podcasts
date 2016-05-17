@@ -3,10 +3,11 @@ import logging
 
 import falcon
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 
 import models
 from api.resources.base import DBResource
-from api.resources.helpers import Validator, Paginator, validate_rel_type
+from api.resources.helpers import Validator, Paginator
 
 class UserResource(DBResource):
 
@@ -66,23 +67,16 @@ class UserPodcastsResource(DBResource):
         self.validator = Validator()
         self.paginator = Paginator()
 
-    def on_get(self, req, resp, user_id, rel_type):
-        validate_rel_type(rel_type)
+    def on_get(self, req, resp, user_id):
         try:
-            public, name = self.session.query(models.User.public,
-                                              models.User.name).filter_by(
-                id=user_id).one()
+            public, name = self.session.query(models.User.public, models.User.name
+                ).filter_by(id=user_id).one()
         except NoResultFound:
             self.handle_one(obj, req, resp)
         else:
-            filts = {
-                'likes': models.Podcast.liking_users.any(
-                    models.User.id == user_id),
-                'dislikes': models.Podcast.disliking_users.any(
-                    models.User.id == user_id)
-                }
+            user = self.session.query(models.User).get(user_id)
             if self.validator.can_view(public, name, user_id, req):
-                query = self.session.query(models.Podcast).filter(filts[rel_type]) 
+                user = self.session.query(models.User).get(user_id).likes
                 try:
                     pagination, res = self.paginator.paginate(req, query)
                 except SQLAlchemyError as err:
@@ -90,13 +84,16 @@ class UserPodcastsResource(DBResource):
                 else:
                     self.handle_res(res, req, resp, models.Podcast,
                                     pagination=pagination)
+            else:
+                raise falcon.HTTPUnauthorized()
 
     def get_user_podcast(self, user_id, podcast_id, req):
         user = self.session.query(models.User).get(user_id)
         if user is None:
-            raise falcon.HTTPNotFound('No such user')
+            raise falcon.HTTPNotFound('No such user', 'No such user')
         elif not self.validator.validate(user.name, user_id, req):
-            raise falcon.HTTPUnauthorized('Invalid credentials')
+            raise falcon.HTTPUnauthorized('Invalid credentials',
+                                          'Invalid credentials')
         else:
             podcast = self.session.query(models.Podcast).get(podcast_id)
             if podcast is None:
@@ -104,24 +101,24 @@ class UserPodcastsResource(DBResource):
             else:
                 return user, podcast
 
-    def on_put(self, req, resp, user_id, rel_type, podcast_id):
-        validate_rel_type(rel_type)
+    def on_put(self, req, resp, user_id, podcast_id):
         user, podcast = self.get_user_podcast(user_id, podcast_id, req)
-        getattr(user, rel_type).append(podcast)
+        user.likes.append(podcast)
         self.session.add(user)
         try:
             self.session.commit()
         except SQLAlchemyError as err:
             self.handle_db_err(err, req, resp)
         else:
-            resp_body = {'user_id': user_id, 'podcast_id': podcast_id,
-                            'added_to': rel_type, 'success': True}
+            resp_body = {'user_id': user_id,
+                         'podcast_id': podcast_id,
+                         'action': 'added',
+                         'success': True}
             self.handle_one(resp_body, req, resp)
 
-    def on_delete(self, req, resp, user_id, rel_type, podcast_id):
-        validate_rel_type(rel_type)
+    def on_delete(self, req, resp, user_id, podcast_id):
         user, podcast = self.get_user_podcast(user_id, podcast_id, req)
-        res = getattr(user, rel_type).all()
+        res = user.likes
         for podcast in res:
             if podcast.id == podcast_id:
                 res.remove(podcast)
@@ -132,8 +129,10 @@ class UserPodcastsResource(DBResource):
         except SQLAlchemyError as err:
             self.handle_db_err(err, req, resp)
         else:
-            resp_body = {'user_id': user_id, 'podcast_id': podcast_id,
-                         'removed_from': rel_type, 'success': True}
+            resp_body = {'user_id': user_id,
+                         'podcast_id': podcast_id,
+                         'action': 'deleted',
+                         'success': True}
             self.handle_one(resp_body, req, resp)
 
 

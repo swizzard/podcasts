@@ -5,6 +5,8 @@ from sqlalchemy import UniqueConstraint, create_engine, orm, schema, types
 from sqlalchemy.dialects.mysql import ENUM
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
+from sqlalchemy.orm import object_session
+from sqlalchemy.orm.scoping import scoped_session
 from sqlalchemy_utils.types.password import PasswordType
 
 
@@ -41,15 +43,6 @@ users_to_likes = schema.Table('users_to_podcasts_likes', Base.metadata,
                                             schema.ForeignKey('users.id')))
 
 
-users_to_dislikes = schema.Table('users_to_podcasts_dislikes', Base.metadata,
-                                 schema.Column('id', types.BigInteger,
-                                               primary_key=True),
-                                 schema.Column('podcast_id', types.Integer,
-                                               schema.ForeignKey('podcasts.id')),
-                                 schema.Column('user_id', types.Integer,
-                                               schema.ForeignKey('users.id')))
-
-
 class Category(Base):
     __tablename__ = 'categories'
 
@@ -72,11 +65,9 @@ class Podcast(Base):
     categories = orm.relationship('Category', secondary='categories_to_podcasts',
                                   backref='podcasts')
     episodes = orm.relationship('Episode', backref='podcast')
-    liking_users = orm.relationship('User', secondary='users_to_podcasts_likes',
-                                    backref='likes')
-    disliking_users = orm.relationship('User',
-                                       secondary='users_to_podcasts_dislikes',
-                                       backref='dislikes')
+    likers = orm.relationship('User', secondary='users_to_podcasts_likes',
+                               back_populates='likes',
+                               lazy='dynamic')
 
     def __repr__(self):
         return '<Podcast: {}>'.format(self.title)
@@ -131,34 +122,6 @@ class Podcast(Base):
             'longer_than')
 
     @hybrid_property
-    def likers(self):
-        return [user for user in self.liking_users if user.public]
-
-    @hybrid_property
-    def dislikers(self):
-        return [user for user in self.disliking_users if user.public]
-
-    @hybrid_method
-    def liked_by(self, user):
-        return (user in self.liking_users)
-
-    @liked_by.expression
-    def liked_by(cls, user):
-        return select([func.count(users_to_likes.id)]).where(
-            users_to_likes.user_id == User.id).where(
-            users_to_likes.podcast_id == cls.id).label('liked_by')
-
-    @hybrid_method
-    def disliked_by(self, user):
-        return (user in self.disliking_users)
-
-    @disliked_by.expression
-    def disliked_by(cls, user):
-        return select([func.count(users_to_dislikes.id)]).where(
-            users_to_dislikes.user_id == User.id).where(
-            users_to_dislikes.podcast_id == cls.id).label('disliked_by')
-
-    @hybrid_property
     def last_published(self):
         return max(ep.date for ep in self.episodes)
 
@@ -203,10 +166,14 @@ class User(Base):
                           index=True)
     public = schema.Column(types.Boolean)
 
+    likes = orm.relationship('Podcast', secondary='users_to_podcasts_likes',
+                             back_populates='likers', lazy='dynamic')
+
     def __repr__(self):
         return '<User: {} ({})>'.format(self.name, self.email)
 
 
-Session = orm.sessionmaker(bind=engine)
+
+Session = scoped_session(orm.sessionmaker(bind=engine))
 Base.metadata.create_all(checkfirst=True)
 

@@ -59,16 +59,19 @@ export default function(retriever, tabler, target) {
     for (let i = 1; i < 32; i++) {
         daysOfMonth.push([moment({y: 2016, M: 4, d: i}).format('Do'), i]);
     };
-    let   root = $('<div class="col-lg-12" id="root"></div>'),
-          form = $(`<form class="form-inline hidden" id="${formId}"></form>`),
+    let   root = () => $('<div class="col-lg-12" id="root"></div>'),
+          form = () => $(`<form class="form-inline hidden" id="${formId}"></form>`),
           catSelector = makeAutocompleteInput('category'),
           authSelector = makeAutocompleteInput('author', 'whoever'),
-          txt = $(`<span class="searcher">I want a podcast that</span>`),
-          moar = $('<button type="button" class="btn btn-link" id="moar">&hellip;</button>'),
-          opts, moarSet, addAnd, selected, query;
+          txt = () => $(`<span class="searcher">I want a podcast that</span>`),
+          moar = () => $('<button type="button" class="btn btn-link" ' +
+                         'id="moar">&hellip;</button>'),
+          opts, moarSet, addAnd, selected, query,
 
-    function init() {
-        $("#root").remove();
+    init = () => {
+        console.log('searcher init');
+        target.empty();
+        tabler.clear();
         opts = {'--': null,
                 'is about': ` is about ${catSelector}`,
                 'published recently':
@@ -89,11 +92,12 @@ export default function(retriever, tabler, target) {
         addAnd = false,
         selected = new Set(),
         query = {};
-        target.append(form);
-        target.append(root.append(txt.append(moar)));
-    };
+        target.append(form());
+        target.append(root().append(txt().append(moar())));
+        $("#moar").on('click', moarCB);
+    },
 
-    function optsSelector() {
+    optsSelector = () => {
         let optElems = [], opt;
         for (opt of Object.keys(opts)) {
             if (!selected.has(opt)) {
@@ -104,6 +108,7 @@ export default function(retriever, tabler, target) {
                     ${optElems.join('\n')}
                 \n</select>`
     };
+
     const optCB = e => {
         let target = $(e.target),
             qname = target.prev().data('query'),
@@ -167,10 +172,14 @@ export default function(retriever, tabler, target) {
                                  ' id="reset"><small>&olarr; RESET</small></button>')),
                 err;
             $(target).append(resetButton);
-            $("#reset").on(() => init());
+            target.on('click', '#reset', init);
             res.then(resp => {
                 if (!!resp.model) {
-                    tabler.makeTable(resp.model, resp.result);
+                    if (!!resp.result) {
+                        tabler.makeTable(resp.model, resp.result);
+                    } else {
+                        showErr('no results');
+                    }
                 } else {
                     showErr(`bad response: ${resp}`);
                 }}).catch(err => showErr(err));
@@ -212,5 +221,5 @@ export default function(retriever, tabler, target) {
             }
         }
     init();
-    $("#moar").on('click', moarCB);
+    document.searcherInit = init;
 };

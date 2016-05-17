@@ -7,13 +7,13 @@ import models
 from api.resources.helpers import DBEncoder
 
 class DBResource():
-    session = None
-
     def __init__(self, model):
-        if DBResource.session is None:
-            DBResource.session = models.Session()
         self.model = model
         self.dumps = partial(json.dumps, cls=DBEncoder)
+
+    @property
+    def session(self):
+        return models.Session()
 
     def handle_db_err(self, err, req, resp):
         resp.status = falcon.HTTP_500

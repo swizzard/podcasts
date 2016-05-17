@@ -48,7 +48,11 @@ class Storage():
                 models.Episode.date == ep['date'],
                 ).one_or_none()
             if episode is None:
-                duration = min([2147483647, ep['duration']])
+                duration = None
+                try:
+                    duration = min((2147483647, int(ep['duration'])))
+                except (TypeError, ValueError):
+                    pass
                 new_episode = models.Episode(podcast_id=pod_id,
                                              duration=duration,
                                              title=ep['title'],

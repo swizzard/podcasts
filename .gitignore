@@ -4,4 +4,4 @@ config.json
 *.log
 venv/
 node_modules
-src/js/dist
+dist/*/

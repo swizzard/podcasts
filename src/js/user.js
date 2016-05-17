@@ -20,13 +20,13 @@ export default function(retriever, tabler, target, bigTarget) {
                            '<button type="button" id="sign-up" ' +
                            'class="btn btn-default btn-sm">Sign Up</button></form>' +
                            '</div></div>'),
-          getLoggedInWidget = () => $(`<div class="${uwidgetClasses}" id="logged-in">` +
-                                      `<p><strong>Username: </strong> ${retriever.username}</p>` +
-                                      '<p id="user-actions">' +
-                                      '<button class="btn btn-default btn-xs" id="profile">Profile</button>' +
-                                      '&nbsp;<button class="btn btn-success btn-xs" id="likes">Likes' +
-                                      '</button>&nbsp;<button class="btn btn-danger btn-xs" id="logout">' +
-                                      'Log Out</button></p></div>'),
+          getLoggedInWidget = username => $(`<div class="${uwidgetClasses}" id="logged-in">` +
+                                            `<p><strong>Username: </strong> ${username}</p>` +
+                                            '<p id="user-actions">' +
+                                            '<button class="btn btn-default btn-xs" id="profile">Profile</button>' +
+                                            '&nbsp;<button class="btn btn-success btn-xs" id="likes">Likes' +
+                                            '</button>&nbsp;<button class="btn btn-danger btn-xs" id="logout">' +
+                                            'Log Out</button></p></div>'),
           signUpWidget = $(`<div class="col-md-8" id="signupWidget">` +
                             '<form><div class="form-group">' +
                             '<label for="signup-username">Username: </label>' +
@@ -43,7 +43,7 @@ export default function(retriever, tabler, target, bigTarget) {
                             '</div><div class="form-group">' +
                             '<label for="signup-email">Email: </label>' +
                             '<input type="email" id="signup-email" ' +
-                            'class="form-control" placeholder="you@example.com" />' +
+                            'class="form-control" placeholder="place.holder@example.com" />' +
                             '</div><div class="checkbox"><label>' +
                             '<input type="checkbox" id="signup-public"> Make profile public' +
                             '</label></div><button class="btn btn-primary" id="go">Go!</button>' +
@@ -87,7 +87,6 @@ export default function(retriever, tabler, target, bigTarget) {
                   showErr(username, "letters, numbers and '_' only");
                   return false;
               } else {
-                  console.log(`username: ${username_val}`);
                   out.username = username_val;
               };
               if (!pw1_val) {
@@ -105,7 +104,6 @@ export default function(retriever, tabler, target, bigTarget) {
                   showErr(pw2, "passwords must match!");
                   return false;
               } else {
-                  console.log(`pw: ${pw1_val}`);
                   out.password = pw1_val;
               };
               if (!email_val) {
@@ -115,7 +113,6 @@ export default function(retriever, tabler, target, bigTarget) {
                   showErr(email, 'invalid email address!');
                   return false;
               } else {
-                  console.log(`email: ${email_val}`);
                   out.email = email_val;
               };
               out['public'] = pub_val;
@@ -125,31 +122,36 @@ export default function(retriever, tabler, target, bigTarget) {
                       user_id = js.id;
                       let l = retriever.POST('login',
                                             {username, password: pw1_val})
-                      console.log(`POST login: ${l}`);
                       return l;
                   })
-                  .then(js => retriever.user = js['results'][0])
+                  .then(js => {
+                      retriever.user = js['results'][0];
+                      init();
+                  })
                   .catch(err => showErr(target, err))
           },
           showFavs = () => {
             bigTarget.empty();
-            retriever.GET('likes', retriever.userId)
+            retriever.GET('likes', retriever.user.userId)
                 .then(js => tabler.makeTable(js.model, js.result))
-                .catch(err => bigTarget.append(`<p class="bg-danger">${err}</p>`));
+                .catch(err => {
+                    console.log(err);
+                    bigTarget.append(`<p class="bg-danger">${err}</p>`);
+                });
           },
           showProfile = () => {
-              let closeCB = () => $("#profileWidget").remove(),
-                  user;
+              let closeCB = () => $("#profileWidget").remove();
               bigTarget.empty();
-              retriever.GET('users', retriever.userId)
-                  .on(js => {
-                      user = js.result[0],
-                      profile = $('<div class="col-md-8" id="userProfile"><p>' +
-                                  `<strong>Username: </strong> ${user.name}</p>` +
-                                  `<p><strong>Email: </strong> ${user.email}</p>` +
-                                  `<p><strong>Public: </strong> ${user.public ? 'Yes' : 'No'}` +
-                                  '<p><button type="button" id="profile-likes">' +
-                                  'Show likes</button>&nbsp;<button type="button" ' +
+              retriever.GET('users', retriever.user.userId)
+                  .then(js => {
+                      let user = js.result[0],
+                          profile = $('<div class="col-md-8" id="userProfile"><p>' +
+                                      `<strong>Username: </strong> ${user.name}</p>` +
+                                      `<p><strong>Email: </strong> ${user.email}</p>` +
+                                      '<p><strong>Public: </strong> ' +
+                                      `${user.public ? 'Yes' : 'No'}</p>` +
+                                      '<p><button type="button" id="profile-likes">' +
+                                      'Show likes</button>&nbsp;<button type="button" ' +
                                   'class="btn btn-danger btn-xs x" aria-label="Close">' +
                                   '<span aria-hidden="true">&times;</span></button>' +
                                   '</p></div>');
@@ -160,11 +162,15 @@ export default function(retriever, tabler, target, bigTarget) {
                   });
           },
           showUser = () => {
-              let loggedIn = getLoggedInWidget();
+              let loggedIn = getLoggedInWidget(retriever.user.username);
               target.append(loggedIn);
               loggedIn.on('click', '#profile', showProfile);
               loggedIn.on('click', '#likes', showFavs);
-              loggedIn.on('click', '#logout', () => (retriever.clearCreds(), init()));
+              loggedIn.on('click', '#logout', () => {
+                  retriever.user = {};
+                  retriever.storer.clear();
+                  init();
+              });
           },
           logIn = e => {
               let tgt = $(e.target).parents('form'),
@@ -173,14 +179,18 @@ export default function(retriever, tabler, target, bigTarget) {
               $("#err").remove();
               retriever.POST('login', {username, password})
                   .then(js => {
-                          console.log(js);
-                          retriever.user = js.result[0];
-                          init();
+                          if (js.result !== undefined && js.result.length) {
+                              retriever.user = js.result[0];
+                              init();
+                          } else {
+                              tgt.append($('<p class="bg-danger err">' +
+                                           'Bad response from server!</p>'));
+                          }
                   })
                   .catch(err => {
                       console.log(err); 
                       $(`<p class="bg-danger err">${err}</p>`).appendTo(tgt);
-                  })
+                  });
           },
           showLogin = () => {
               target.append(logInWidget);
@@ -191,13 +201,10 @@ export default function(retriever, tabler, target, bigTarget) {
               });
           };
         init = () => {
-            console.log('UserWidget init');
             target.empty();
-            if (!!retriever.user) {
-                console.log(`username: ${retriever.user.username}`);
+            if (!!retriever.user && retriever.user.loggedIn) {
                 showUser();
             } else {
-                console.log('not logged in');
                 showLogin();
             };
         };

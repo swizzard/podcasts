@@ -4,7 +4,7 @@ import podSearch from './searcher';
 import UserWidget from './user';
 
 const retriever = document.retriever = Retriever(),
-      tabler = Tabler($("#bottom"));
+      tabler = Tabler(retriever, $("#bottom"));
 let tp = $('#top'),
     user = $('#user'),
     bottom = $('#bottom');

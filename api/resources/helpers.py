@@ -71,6 +71,8 @@ class Noncer():
 
     def validate_token(self, username, token):
         expected_token = self.get_token(username)
+        logging.info('username: {}'.format(username))
+        logging.info('expected: {}\nactual: {}'.format(expected_token, token))
         return expected_token == token
 
     @staticmethod
@@ -176,10 +178,4 @@ class Paginator():
         cpy = copy(d)
         cpy.update(kwargs)
         return cpy
-
-
-def validate_rel_type(rel_type):
-    if rel_type not in {'likes', 'likers', 'dislikes', 'dislikers'}:
-        raise falcon.HTTPNotFound
-
 

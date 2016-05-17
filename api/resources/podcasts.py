@@ -43,13 +43,13 @@ class PodcastUsersResource(DBResource):
         super().__init__(models.Podcast)
         self.paginator = Paginator()
 
-    def on_get(self, req, resp, podcast_id, rel_type):
-        validate_rel_type(rel_type)
+    def on_get(self, req, resp, podcast_id):
         try:
             if not self.session.query(models.Podcast).filter_by(
                 id=podcast_id).count():
                 self.handle_one(None, req, resp)
             else:
+                
                 query = self.session.query(models.User).filter(
                     User.public == True,
                     User.likes.any(models.Podcast.id == podcast_id))
@@ -94,8 +94,8 @@ class SearchResource(DBResource):
         db_query = db_query.limit(self.limit)
         try:
             res = db_query.all()
-        except SQLAlchemyError:
-            self.handle_db_err(err, res, req)
+        except SQLAlchemyError as err:
+            self.handle_db_err(err, req, resp)
         else:
             js_query['page'] = page + 1
             self.handle_res(res, req, resp, query=js_query)
